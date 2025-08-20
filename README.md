@@ -40,7 +40,7 @@ export OLLAMA_HOST="http://192.168.1.100:11434"
 To start the backend server, run the following command in your terminal:
 
 ```bash
-uvicorn main:app --reload
+uvicorn app.main:app --reload
 ```
 
 The server will be available at `http://127.0.0.1:8000`. The `--reload` flag is for development and automatically reloads the server when code changes are detected.
