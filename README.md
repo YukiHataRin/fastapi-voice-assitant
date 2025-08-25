@@ -45,6 +45,8 @@ uvicorn app.main:app --reload
 
 The server will be available at `http://127.0.0.1:8000`. The `--reload` flag is for development and automatically reloads the server when code changes are detected.
 
+On the first run, a database file named `app.db` will be created in the project's root directory to store application settings.
+
 ## API Usage
 
 The backend provides a single endpoint for streaming chat completions.
@@ -101,3 +103,48 @@ data: {"chunk": "hulls."}
 data: {"chunk": "..."}
 data: {"status": "done"}
 ```
+
+### System Prompt Management
+
+You can set a global system prompt that will be used for all chat sessions. This allows you to customize the assistant's personality or provide specific instructions.
+
+#### Set the System Prompt
+
+**`POST /api/prompts/system`**
+
+Sets or updates the system prompt.
+
+**Request Body:**
+```json
+{
+  "prompt": "You are a helpful assistant who always responds in the style of a 17th-century pirate."
+}
+```
+
+**Example `curl` command:**
+```bash
+curl -X POST http://127.0.0.1:8000/api/prompts/system \
+-H "Content-Type: application/json" \
+-d '{
+  "prompt": "You are a helpful assistant who always responds in the style of a 17th-century pirate."
+}'
+```
+
+#### Get the System Prompt
+
+**`GET /api/prompts/system`**
+
+Retrieves the currently active system prompt.
+
+**Example `curl` command:**
+```bash
+curl http://127.0.0.1:8000/api/prompts/system
+```
+
+**Response:**
+```json
+{
+  "prompt": "You are a helpful assistant who always responds in the style of a 17th-century pirate."
+}
+```
+*Note: If the prompt has not been set yet, this endpoint will return a `404 Not Found` error.*
