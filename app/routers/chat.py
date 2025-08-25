@@ -8,8 +8,6 @@ from app.config import OLLAMA_HOST, DEFAULT_MODEL
 
 router = APIRouter()
 
-# FastAPI automatically handles request validation for the ChatRequest model.
-# A 422 Unprocessable Entity response will be returned for invalid data.
 @router.post("/chat")
 async def chat_endpoint(request: ChatRequest):
     """
@@ -24,28 +22,40 @@ async def chat_endpoint(request: ChatRequest):
         "stream": True,
     }
 
-    # Using a long timeout for the client as the stream can be long-running
     client = httpx.AsyncClient(timeout=None)
 
+    # Manually create the stream context so we can handle connection errors
+    # before we start sending a response to our client.
+    stream_context = client.stream("POST", ollama_api_url, json=payload)
+
     try:
-        # Initiate the streaming request to the Ollama service
-        response_stream = await client.stream("POST", ollama_api_url, json=payload)
+        # Manually enter the async context. This is where the connection is made.
+        response_stream = await stream_context.__aenter__()
     except httpx.ConnectError:
+        # If connection fails, close the client and raise a 503 error.
         await client.aclose()
         raise HTTPException(
             status_code=503, detail="Service Unavailable: Could not connect to Ollama."
         )
+    except Exception as e:
+        # Handle other potential startup errors.
+        await client.aclose()
+        raise HTTPException(
+            status_code=500, detail=f"An unexpected error occurred: {e}"
+        )
 
-    # We create a wrapper generator to ensure the httpx client is closed properly
-    # after the streaming response has finished.
+    # This wrapper generator is now responsible for ensuring the stream context
+    # and the client are properly closed.
     async def generator_wrapper():
         try:
             # Pass the raw response stream to the service-layer generator
             async for chunk in stream_ollama_response_generator(response_stream):
                 yield chunk
         finally:
-            # This block will execute after the generator is exhausted,
-            # ensuring the client is always closed.
+            # Ensure the stream context is exited and the client is closed.
+            # The arguments to __aexit__ are exception type, value, and traceback.
+            # Passing None indicates no exception occurred within the stream's processing.
+            await stream_context.__aexit__(None, None, None)
             await client.aclose()
 
     return StreamingResponse(generator_wrapper(), media_type="text/event-stream")
