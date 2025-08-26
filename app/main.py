@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+import time
 
 # Import routers
 from app.routers import chat, prompts
@@ -12,6 +13,23 @@ app = FastAPI(
     description="A backend service to proxy requests to an Ollama LLM.",
     version="1.0.0",
 )
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+
+    response = await call_next(request)
+
+    process_time = (time.time() - start_time) * 1000
+    formatted_process_time = '{0:.2f}'.format(process_time)
+
+    # 這裡的 request.client.host 會是真實 IP
+    client_host = request.client.host
+
+    # 模仿 Uvicorn 的日誌格式
+    print(f'INFO:     {client_host} - "{request.method} {request.url.path}" {response.status_code} - {formatted_process_time}ms')
+
+    return response
 
 # --- Database Initialization ---
 # This event handler will run when the application starts.
